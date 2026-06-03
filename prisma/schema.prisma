@@ -61,20 +61,19 @@ model Tenant {
 }
 
 model User {
-  id         String   @id @default(cuid())
-  tenantId   String
-  email      String
-  name       String
-  role       Role     @default(AGENT)
-  externalId String?  @unique // Clerk user id
-  createdAt  DateTime @default(now())
+  id           String   @id @default(cuid())
+  tenantId     String
+  email        String   @unique
+  name         String
+  role         Role     @default(AGENT)
+  passwordHash String?
+  createdAt    DateTime @default(now())
 
   tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdTickets  Ticket[]  @relation("TicketCreatedBy")
   assignedTickets Ticket[]  @relation("TicketAssignee")
   messages        Message[]
 
-  @@unique([tenantId, email])
   @@index([tenantId])
 }
 

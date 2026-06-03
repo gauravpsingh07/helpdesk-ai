@@ -1,5 +1,8 @@
 import 'dotenv/config';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../lib/db/client';
+
+const DEMO_PASSWORD = 'Password123!';
 
 async function main() {
   // Dev-only reset: delete children before parents to respect RESTRICT FKs.
@@ -13,15 +16,29 @@ async function main() {
   await prisma.user.deleteMany();
   await prisma.tenant.deleteMany();
 
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+
   for (const slug of ['acme', 'globex'] as const) {
     const name = slug === 'acme' ? 'Acme Inc.' : 'Globex Corp.';
     const tenant = await prisma.tenant.create({ data: { name, slug } });
 
     await prisma.user.create({
-      data: { tenantId: tenant.id, email: `admin@${slug}.test`, name: 'Ada Admin', role: 'ADMIN' },
+      data: {
+        tenantId: tenant.id,
+        email: `admin@${slug}.test`,
+        name: 'Ada Admin',
+        role: 'ADMIN',
+        passwordHash,
+      },
     });
     const agent = await prisma.user.create({
-      data: { tenantId: tenant.id, email: `agent@${slug}.test`, name: 'Gus Agent', role: 'AGENT' },
+      data: {
+        tenantId: tenant.id,
+        email: `agent@${slug}.test`,
+        name: 'Gus Agent',
+        role: 'AGENT',
+        passwordHash,
+      },
     });
     const customer = await prisma.user.create({
       data: {
@@ -29,6 +46,7 @@ async function main() {
         email: `customer@${slug}.test`,
         name: 'Cara Customer',
         role: 'CUSTOMER',
+        passwordHash,
       },
     });
 
@@ -63,6 +81,8 @@ async function main() {
 
     console.log(`Seeded ${name}: admin/agent/customer + 3 docs + 1 ticket`);
   }
+
+  console.log(`\nDemo login password for every seeded user: ${DEMO_PASSWORD}`);
 }
 
 main()
