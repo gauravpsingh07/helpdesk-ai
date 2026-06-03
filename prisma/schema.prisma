@@ -1,7 +1,7 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Helpdesk — multi-tenant AI support platform
+// Docs: https://pris.ly/d/prisma-schema
+// Note: pgvector extension + the ANN index on Chunk.embedding are added via raw SQL
+// in the init migration (Prisma can't express the `vector` type or vector indexes natively).
 
 generator client {
   provider = "prisma-client"
@@ -10,4 +10,192 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  AGENT
+  CUSTOMER
+}
+
+enum DocStatus {
+  PENDING
+  INDEXED
+  FAILED
+}
+
+enum TicketStatus {
+  OPEN
+  PENDING
+  RESOLVED
+}
+
+enum Sender {
+  CUSTOMER
+  AGENT
+  AI
+}
+
+enum SuggestionStatus {
+  PENDING
+  ACCEPTED
+  EDITED
+  REJECTED
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      String   @default("free")
+  createdAt DateTime @default(now())
+
+  users       User[]
+  documents   Document[]
+  chunks      Chunk[]
+  tickets     Ticket[]
+  messages    Message[]
+  suggestions AiSuggestion[]
+  auditLogs   AuditLog[]
+  apiKeys     ApiKey[]
+}
+
+model User {
+  id         String   @id @default(cuid())
+  tenantId   String
+  email      String
+  name       String
+  role       Role     @default(AGENT)
+  externalId String?  @unique // Clerk user id
+  createdAt  DateTime @default(now())
+
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdTickets  Ticket[]  @relation("TicketCreatedBy")
+  assignedTickets Ticket[]  @relation("TicketAssignee")
+  messages        Message[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+model Document {
+  id        String    @id @default(cuid())
+  tenantId  String
+  title     String
+  sourceUrl String?
+  status    DocStatus @default(PENDING)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chunks Chunk[]
+
+  @@index([tenantId])
+}
+
+model Chunk {
+  id         String                      @id @default(cuid())
+  tenantId   String
+  documentId String
+  content    String
+  tokenCount Int                         @default(0)
+  embedding  Unsupported("vector(768)")?
+  createdAt  DateTime                    @default(now())
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([documentId])
+}
+
+model Ticket {
+  id          String       @id @default(cuid())
+  tenantId    String
+  subject     String
+  status      TicketStatus @default(OPEN)
+  priority    Int          @default(3) // 1 = highest, 5 = lowest
+  tags        String[]     @default([])
+  createdById String
+  assigneeId  String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy   User           @relation("TicketCreatedBy", fields: [createdById], references: [id])
+  assignee    User?          @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  messages    Message[]
+  suggestions AiSuggestion[]
+
+  @@index([tenantId, status])
+  @@index([assigneeId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  tenantId  String
+  ticketId  String
+  authorId  String?
+  sender    Sender
+  body      String
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User?  @relation(fields: [authorId], references: [id])
+
+  @@index([tenantId])
+  @@index([ticketId])
+}
+
+model AiSuggestion {
+  id               String           @id @default(cuid())
+  tenantId         String
+  ticketId         String
+  draft            String
+  citations        Json             @default("[]")
+  faithfulness     Float?
+  refused          Boolean          @default(false)
+  model            String
+  promptTokens     Int              @default(0)
+  completionTokens Int              @default(0)
+  costUsd          Float            @default(0)
+  latencyMs        Int              @default(0)
+  status           SuggestionStatus @default(PENDING)
+  createdAt        DateTime         @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([ticketId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  actorId   String?
+  action    String
+  target    String
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+}
+
+model ApiKey {
+  id              String    @id @default(cuid())
+  tenantId        String
+  name            String    @default("Widget Key")
+  hashedKey       String    @unique
+  prefix          String // first chars, for display
+  rateLimitPerMin Int       @default(30)
+  createdAt       DateTime  @default(now())
+  lastUsedAt      DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }

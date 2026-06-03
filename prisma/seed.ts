@@ -1,0 +1,76 @@
+import 'dotenv/config';
+import { prisma } from '../lib/db/client';
+
+async function main() {
+  // Dev-only reset: delete children before parents to respect RESTRICT FKs.
+  await prisma.message.deleteMany();
+  await prisma.aiSuggestion.deleteMany();
+  await prisma.ticket.deleteMany();
+  await prisma.apiKey.deleteMany();
+  await prisma.chunk.deleteMany();
+  await prisma.document.deleteMany();
+  await prisma.auditLog.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.tenant.deleteMany();
+
+  for (const slug of ['acme', 'globex'] as const) {
+    const name = slug === 'acme' ? 'Acme Inc.' : 'Globex Corp.';
+    const tenant = await prisma.tenant.create({ data: { name, slug } });
+
+    await prisma.user.create({
+      data: { tenantId: tenant.id, email: `admin@${slug}.test`, name: 'Ada Admin', role: 'ADMIN' },
+    });
+    const agent = await prisma.user.create({
+      data: { tenantId: tenant.id, email: `agent@${slug}.test`, name: 'Gus Agent', role: 'AGENT' },
+    });
+    const customer = await prisma.user.create({
+      data: {
+        tenantId: tenant.id,
+        email: `customer@${slug}.test`,
+        name: 'Cara Customer',
+        role: 'CUSTOMER',
+      },
+    });
+
+    await prisma.document.createMany({
+      data: [
+        { tenantId: tenant.id, title: 'Refund policy', status: 'INDEXED' },
+        { tenantId: tenant.id, title: 'Shipping & delivery', status: 'INDEXED' },
+        { tenantId: tenant.id, title: 'Account & billing FAQ', status: 'INDEXED' },
+      ],
+    });
+
+    const ticket = await prisma.ticket.create({
+      data: {
+        tenantId: tenant.id,
+        subject: 'Where is my order?',
+        createdById: customer.id,
+        assigneeId: agent.id,
+        priority: 2,
+        tags: ['shipping'],
+      },
+    });
+
+    await prisma.message.create({
+      data: {
+        tenantId: tenant.id,
+        ticketId: ticket.id,
+        authorId: customer.id,
+        sender: 'CUSTOMER',
+        body: 'I ordered 5 days ago and still have no update. Can you help?',
+      },
+    });
+
+    console.log(`Seeded ${name}: admin/agent/customer + 3 docs + 1 ticket`);
+  }
+}
+
+main()
+  .then(async () => {
+    await prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error(e);
+    await prisma.$disconnect();
+    process.exit(1);
+  });
