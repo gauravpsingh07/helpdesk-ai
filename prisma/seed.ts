@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../lib/db/client';
+import { hashApiKey } from '../lib/apikey';
 
 const DEMO_PASSWORD = 'Password123!';
 
@@ -79,7 +80,18 @@ async function main() {
       },
     });
 
-    console.log(`Seeded ${name}: admin/agent/customer + 3 docs + 1 ticket`);
+    const rawKey = `hd_demo_${slug}`;
+    await prisma.apiKey.create({
+      data: {
+        tenantId: tenant.id,
+        name: 'Demo Widget Key',
+        hashedKey: hashApiKey(rawKey),
+        prefix: rawKey.slice(0, 12),
+        rateLimitPerMin: 30,
+      },
+    });
+
+    console.log(`Seeded ${name}: users + 3 docs + 1 ticket + widget key (${rawKey})`);
   }
 
   console.log(`\nDemo login password for every seeded user: ${DEMO_PASSWORD}`);
