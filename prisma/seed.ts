@@ -53,9 +53,9 @@ async function main() {
 
     await prisma.document.createMany({
       data: [
-        { tenantId: tenant.id, title: 'Refund policy', status: 'INDEXED' },
-        { tenantId: tenant.id, title: 'Shipping & delivery', status: 'INDEXED' },
-        { tenantId: tenant.id, title: 'Account & billing FAQ', status: 'INDEXED' },
+        { tenantId: tenant.id, title: 'Refund policy', status: 'PENDING' },
+        { tenantId: tenant.id, title: 'Shipping & delivery', status: 'PENDING' },
+        { tenantId: tenant.id, title: 'Account & billing FAQ', status: 'PENDING' },
       ],
     });
 

@@ -8,6 +8,7 @@ import type { Role } from '@/lib/auth/rbac';
 const NAV: { href: string; label: string; roles: Role[] }[] = [
   { href: '/dashboard', label: 'Dashboard', roles: ['ADMIN', 'AGENT', 'CUSTOMER'] },
   { href: '/tickets', label: 'Tickets', roles: ['ADMIN', 'AGENT', 'CUSTOMER'] },
+  { href: '/knowledge', label: 'Knowledge base', roles: ['ADMIN', 'AGENT'] },
   { href: '/settings', label: 'Settings', roles: ['ADMIN'] },
 ];
 
