@@ -3,7 +3,9 @@ import { notFound } from 'next/navigation';
 import { requireActor } from '@/lib/auth/session';
 import { getTenantDb } from '@/lib/db/tenant';
 import { setStatusAction, assignTicketAction } from '@/lib/actions/tickets';
+import { generateReplyAction, triageTicketAction } from '@/lib/actions/agent';
 import { TicketThread, type ThreadMessage } from './ticket-thread';
+import { SuggestionPanel, type PendingSuggestion } from './suggestion-panel';
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requireActor();
@@ -34,11 +36,28 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       })
     : [];
 
+  const pendingSuggestion = isStaff
+    ? await db.aiSuggestion.findFirst({
+        where: { ticketId: ticket.id, status: 'PENDING' },
+        orderBy: { createdAt: 'desc' },
+      })
+    : null;
+  const suggestionForPanel: PendingSuggestion | null = pendingSuggestion
+    ? {
+        id: pendingSuggestion.id,
+        draft: pendingSuggestion.draft,
+        faithfulness: pendingSuggestion.faithfulness,
+        refused: pendingSuggestion.refused,
+        citations:
+          (pendingSuggestion.citations as unknown as { n: number; documentTitle: string }[]) ?? [],
+      }
+    : null;
+
   const initialMessages: ThreadMessage[] = ticket.messages.map((m) => ({
     id: m.id,
     body: m.body,
     sender: m.sender,
-    authorName: m.author?.name ?? (m.sender === 'AI' ? 'AI Assistant' : 'Unknown'),
+    authorName: m.sender === 'AI' ? 'AI Assistant' : (m.author?.name ?? 'Unknown'),
     createdAt: m.createdAt.toISOString(),
   }));
 
@@ -52,6 +71,18 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
         <p className="text-sm text-slate-500">
           Opened by {ticket.createdBy.name} · Priority P{ticket.priority}
         </p>
+        {ticket.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {ticket.tags.map((t) => (
+              <span
+                key={t}
+                className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {isStaff && (
@@ -96,8 +127,24 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               Assign
             </button>
           </form>
+
+          <form action={generateReplyAction} className="flex items-end">
+            <input type="hidden" name="ticketId" value={ticket.id} />
+            <button className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700">
+              Draft AI reply
+            </button>
+          </form>
+
+          <form action={triageTicketAction} className="flex items-end">
+            <input type="hidden" name="ticketId" value={ticket.id} />
+            <button className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
+              Auto-triage
+            </button>
+          </form>
         </div>
       )}
+
+      {suggestionForPanel && <SuggestionPanel suggestion={suggestionForPanel} />}
 
       <TicketThread ticketId={ticket.id} initialMessages={initialMessages} />
     </div>
