@@ -5,6 +5,9 @@ import { generateText } from '@/lib/ai/gemini';
 import { estimateCostUsd } from '@/lib/ai/cost';
 import { retrieve } from '@/lib/rag/retrieve';
 import { scoreFaithfulness } from '@/lib/ai/grade';
+import { checkCostCap } from '@/lib/governance/costCap';
+import { isRestricted } from '@/lib/governance/policy';
+import { sanitizeForContext } from '@/lib/governance/injection';
 
 const FAITHFULNESS_REFUSE_BELOW = 0.5;
 
@@ -33,27 +36,41 @@ export async function runReplyAgent(tenantId: string, ticketId: string): Promise
   if (!ticket) throw new Error('Ticket not found');
 
   const question = lastCustomerQuestion(ticket.messages) ?? ticket.subject;
+
+  // Governance gate: per-tenant monthly AI budget cap.
+  const cap = await checkCostCap(tenantId);
+  if (!cap.allowed) {
+    return refuse(
+      tenantId,
+      ticketId,
+      started,
+      "The workspace's monthly AI budget has been reached, so I'm escalating to a human agent.",
+    );
+  }
+  // Governance gate: unsafe / out-of-scope requests.
+  if (isRestricted(question)) {
+    return refuse(
+      tenantId,
+      ticketId,
+      started,
+      "I can't help with that request, so I'm escalating it to a human agent.",
+    );
+  }
+
   const chunks = await retrieve(tenantId, question, 5);
 
   if (chunks.length === 0) {
-    return persist({
+    return refuse(
       tenantId,
       ticketId,
-      draft:
-        "I couldn't find anything in the knowledge base to answer this confidently, so I'm escalating to a human agent.",
-      citations: [],
-      faithfulness: 0,
-      refused: true,
-      model: 'none',
-      promptTokens: 0,
-      completionTokens: 0,
-      costUsd: 0,
-      latencyMs: Date.now() - started,
-    });
+      started,
+      "I couldn't find anything in the knowledge base to answer this confidently, so I'm escalating to a human agent.",
+    );
   }
 
+  // Governance: neutralize any prompt-injection in untrusted retrieved content.
   const context = chunks
-    .map((c, i) => `[${i + 1}] (${c.documentTitle})\n${c.content}`)
+    .map((c, i) => `[${i + 1}] (${c.documentTitle})\n${sanitizeForContext(c.content).text}`)
     .join('\n\n');
   const system =
     'You are a careful customer-support agent. Answer ONLY using the numbered context. ' +
@@ -120,4 +137,25 @@ async function persist(args: {
     },
   });
   return { suggestionId: suggestion.id, refused: args.refused, faithfulness: args.faithfulness };
+}
+
+function refuse(
+  tenantId: string,
+  ticketId: string,
+  started: number,
+  draft: string,
+): Promise<ReplyResult> {
+  return persist({
+    tenantId,
+    ticketId,
+    draft,
+    citations: [],
+    faithfulness: 0,
+    refused: true,
+    model: 'none',
+    promptTokens: 0,
+    completionTokens: 0,
+    costUsd: 0,
+    latencyMs: Date.now() - started,
+  });
 }
