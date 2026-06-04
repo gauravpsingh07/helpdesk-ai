@@ -4,9 +4,9 @@ import { getTenantDb } from '@/lib/db/tenant';
 import { generateText } from '@/lib/ai/gemini';
 import { estimateCostUsd } from '@/lib/ai/cost';
 import { retrieve } from '@/lib/rag/retrieve';
+import { scoreFaithfulness } from '@/lib/ai/grade';
 
 const FAITHFULNESS_REFUSE_BELOW = 0.5;
-const GRADER_MODEL = process.env.GEMINI_GRADER_MODEL ?? 'gemini-2.5-flash-lite';
 
 export type Citation = { n: number; documentTitle: string; chunkId: string };
 export type ReplyResult = { suggestionId: string; refused: boolean; faithfulness: number };
@@ -16,27 +16,6 @@ function lastCustomerQuestion(messages: { sender: string; body: string }[]): str
     if (messages[i]?.sender === 'CUSTOMER') return messages[i]?.body ?? null;
   }
   return null;
-}
-
-// Self-critique step: LLM-as-judge faithfulness of the draft against the context.
-async function scoreFaithfulness(context: string, answer: string): Promise<number> {
-  const system =
-    'You are a strict grader. Given CONTEXT and an ANSWER, output JSON {"faithful": n} where ' +
-    'n in [0,1] is how fully the ANSWER is supported by the CONTEXT alone. No prose.';
-  try {
-    const res = await generateText({
-      system,
-      prompt: `CONTEXT:\n${context}\n\nANSWER:\n${answer}\n\nReturn JSON only.`,
-      json: true,
-      temperature: 0,
-      model: GRADER_MODEL,
-    });
-    const parsed = JSON.parse(res.text) as { faithful?: unknown };
-    const value = Number(parsed.faithful);
-    return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0.5;
-  } catch {
-    return 0.5;
-  }
 }
 
 /**
@@ -65,7 +44,7 @@ export async function runReplyAgent(tenantId: string, ticketId: string): Promise
       citations: [],
       faithfulness: 0,
       refused: true,
-      model: GRADER_MODEL,
+      model: 'none',
       promptTokens: 0,
       completionTokens: 0,
       costUsd: 0,
