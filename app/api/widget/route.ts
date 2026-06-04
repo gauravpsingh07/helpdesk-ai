@@ -5,6 +5,7 @@ import { hashApiKey } from '@/lib/apikey';
 import { rateLimit } from '@/lib/ratelimit/tokenBucket';
 import { widgetMessageSchema } from '@/lib/validation/ticket';
 import { audit } from '@/lib/audit';
+import { enqueue } from '@/lib/jobs/queue';
 
 function json(body: unknown, status: number, extraHeaders: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
     target: ticket.id,
     metadata: { via: 'widget' },
   });
+  await enqueue('ticket.triage', { tenantId, ticketId: ticket.id });
   await prisma.apiKey.update({ where: { id: apiKey.id }, data: { lastUsedAt: new Date() } });
 
   return json({ ok: true, ticketId: ticket.id }, 201);

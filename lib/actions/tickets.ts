@@ -7,6 +7,7 @@ import { getTenantDb } from '@/lib/db/tenant';
 import { audit } from '@/lib/audit';
 import { publishTicketEvent } from '@/lib/realtime';
 import { createTicketSchema, postMessageSchema, ticketStatusSchema } from '@/lib/validation/ticket';
+import { enqueue } from '@/lib/jobs/queue';
 
 function senderFor(role: string): 'CUSTOMER' | 'AGENT' {
   return role === 'CUSTOMER' ? 'CUSTOMER' : 'AGENT';
@@ -49,6 +50,7 @@ export async function createTicketAction(
     action: 'ticket.create',
     target: ticket.id,
   });
+  await enqueue('ticket.triage', { tenantId: actor.tenantId, ticketId: ticket.id });
 
   redirect(`/tickets/${ticket.id}`);
 }
