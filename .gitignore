@@ -45,3 +45,8 @@ next-env.d.ts
 
 # eval (raw report is generated; rendered report.md is kept as evidence)
 /eval/report.json
+
+# playwright
+/test-results
+/playwright-report
+/playwright/.cache
