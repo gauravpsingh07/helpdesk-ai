@@ -2,6 +2,7 @@ import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../lib/db/client';
 import { hashApiKey } from '../lib/apikey';
+import type { Prisma } from '../lib/generated/prisma/client';
 
 const DEMO_PASSWORD = 'Password123!';
 
@@ -77,6 +78,26 @@ async function main() {
         authorId: customer.id,
         sender: 'CUSTOMER',
         body: 'I ordered 5 days ago and still have no update. Can you help?',
+      },
+    });
+
+    await prisma.aiSuggestion.create({
+      data: {
+        tenantId: tenant.id,
+        ticketId: ticket.id,
+        draft:
+          'Your order shipped and should arrive within 3–5 business days. You can track it via the link in your confirmation email. [1]',
+        citations: [
+          { n: 1, documentTitle: 'Shipping & delivery', chunkId: 'seed' },
+        ] as unknown as Prisma.InputJsonValue,
+        faithfulness: 0.93,
+        refused: false,
+        model: 'gemini-2.5-flash',
+        promptTokens: 420,
+        completionTokens: 60,
+        costUsd: 0.000276,
+        latencyMs: 1850,
+        status: 'ACCEPTED',
       },
     });
 
