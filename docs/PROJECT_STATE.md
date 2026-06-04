@@ -5,14 +5,14 @@
 > `docs/BUILD_PLAN.md` (how-to) and `docs/PROJECT_PLAN.md` (spec) — but **this file is the source of
 > truth for current status.** Keep it updated at every phase boundary.
 >
-> Last updated: end of **Phase 7** (AI Operations).
+> Last updated: end of **Phase 8** (Governance & security).
 
 ---
 
 ## TL;DR
 - **What:** multi-tenant AI customer-support SaaS. Portfolio project to land full-stack/SWE roles; demonstrates Agentic design · RAG · AI Ops · Automation · Governance.
 - **Where:** `D:\Projects\helpdesk` (Windows / PowerShell). **GitHub:** https://github.com/gauravpsingh07/helpdesk-ai (public, `origin/main`).
-- **Status:** Phases 0–7 done & pushed. Phases 8–11 remain. ~36 commits, 18 unit + 7 integration tests, build green, eval gate passing (faithfulness 100% on the golden set).
+- **Status:** Phases 0–8 done & pushed. Phases 9–11 remain. ~44 commits, 24 unit + 8 integration tests, build green, eval gate passing.
 - **Resume:** start Docker → `docker compose up -d` → `pnpm dev` + `pnpm worker` → log in `admin@acme.test` / `Password123!`.
 
 ## Process rules (the user set these — follow exactly)
@@ -60,8 +60,8 @@
 | 5 Agentic | ✅ | Reply agent (retrieve→draft+cite→self-critique faithfulness→refuse/escalate), triage agent, human-in-the-loop panel, cost tracking |
 | 6 Background jobs | ✅ | Postgres queue (SKIP LOCKED, backoff), worker, async ingest, auto-triage on create, self-rescheduling digest, `/api/jobs/run` |
 | 7 AI Operations | ✅ | eval harness (golden set + faithfulness scorer + `eval/report.md` + `pnpm eval` gate), `/metrics` page (cost / p95 latency / acceptance / refusal / faithfulness) |
-| **8 Governance** | ⏳ next | PII redaction, prompt-injection guard, refusal policy (partly done), audit log (done), per-tenant cost cap, model card/datasheet/threat-model |
-| 9 Testing & CI/CD | ⏳ | Playwright e2e (signup→ticket→AI draft→send), GitHub Actions (lint/typecheck/test/build/e2e + eval gate), Postgres service |
+| 8 Governance | ✅ | PII redaction (ingest), prompt-injection sanitize + restricted-topic refusal (agent), per-tenant monthly cost cap, audit log. Governance *docs* (model card/datasheet/threat-model) deferred to Phase 11 |
+| **9 Testing & CI/CD** | ⏳ next | Playwright e2e (signup→ticket→AI draft→send), GitHub Actions (lint/typecheck/test/build/e2e + eval gate), Postgres service |
 | 10 Deploy | ⏳ | Neon Postgres, Vercel, env, `vercel.json` cron→`/api/jobs/run`, demo creds |
 | 11 Docs | ⏳ | README case study, ARCHITECTURE+diagram, MODEL_CARD, DATASHEET, THREAT_MODEL, ADRs, 3-min Loom |
 
@@ -91,6 +91,7 @@ lib/eval/{golden,scorer,run}.ts  eval harness; scripts/eval.ts = `pnpm eval` gat
 app/(app)/metrics         admin/agent: AI-ops metrics (cost/latency/acceptance/refusal/faithfulness)
 lib/jobs/{backoff,queue,handlers,run}.ts  job queue
 lib/{audit,apikey,realtime,ratelimit/tokenBucket}.ts  cross-cutting
+lib/governance/{pii,injection,costCap,policy}.ts  guards: PII redaction, injection sanitize, cost cap, refusal
 lib/actions/{auth,tickets,documents,agent}.ts  server actions
 scripts/worker.ts         `pnpm worker` (tsx)
 prisma/schema.prisma, prisma/migrations, prisma/seed.ts
@@ -140,4 +141,4 @@ pnpm typecheck; pnpm lint; pnpm test; pnpm test:int; pnpm eval; pnpm build
 - **Vercel Hobby cron** is daily-only → for prod job processing run a worker or note the limitation (local demo uses `pnpm worker`).
 
 ## Commit tally
-~36 commits (Phase 0–7). Each phase = 6–9 atomic commits. Verify with `git log --oneline | Measure-Object`.
+~44 commits (Phase 0–8). Each phase = 6–9 atomic commits. Verify with `git log --oneline | Measure-Object`.
