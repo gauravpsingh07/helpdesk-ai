@@ -5,14 +5,14 @@
 > `docs/BUILD_PLAN.md` (how-to) and `docs/PROJECT_PLAN.md` (spec) — but **this file is the source of
 > truth for current status.** Keep it updated at every phase boundary.
 >
-> Last updated: end of **Phase 9** (Testing & CI/CD).
+> Last updated: end of **Phase 10** (Deployment — deploy-ready, not yet live).
 
 ---
 
 ## TL;DR
 - **What:** multi-tenant AI customer-support SaaS. Portfolio project to land full-stack/SWE roles; demonstrates Agentic design · RAG · AI Ops · Automation · Governance.
 - **Where:** `D:\Projects\helpdesk` (Windows / PowerShell). **GitHub:** https://github.com/gauravpsingh07/helpdesk-ai (public, `origin/main`).
-- **Status:** Phases 0–9 done & pushed. Phases 10–11 remain. ~50 commits, 24 unit + 8 integration + 1 Playwright e2e, CI pipeline + eval gate green.
+- **Status:** Phases 0–10 done & pushed (Phase 10 = **deploy-ready**, not yet live by user choice). Phase 11 (docs) remains. ~56 commits, 24 unit + 8 integration + 1 e2e, CI + eval gate green.
 - **Resume:** start Docker → `docker compose up -d` → `pnpm dev` + `pnpm worker` → log in `admin@acme.test` / `Password123!`.
 
 ## Process rules (the user set these — follow exactly)
@@ -62,8 +62,8 @@
 | 7 AI Operations | ✅ | eval harness (golden set + faithfulness scorer + `eval/report.md` + `pnpm eval` gate), `/metrics` page (cost / p95 latency / acceptance / refusal / faithfulness) |
 | 8 Governance | ✅ | PII redaction (ingest), prompt-injection sanitize + restricted-topic refusal (agent), per-tenant monthly cost cap, audit log. Governance *docs* (model card/datasheet/threat-model) deferred to Phase 11 |
 | 9 Testing & CI/CD | ✅ | Playwright e2e (sign-in→ticket→reply), GitHub Actions (install→migrate→seed→lint→typecheck→unit→integration→build→e2e→eval) with a Postgres service. AI steps skip without the `GEMINI_API_KEY` secret |
-| **10 Deploy** | ⏳ next | Neon Postgres, Vercel, env, `vercel.json` cron→`/api/jobs/run`, demo creds |
-| 11 Docs | ⏳ | README case study, ARCHITECTURE+diagram, MODEL_CARD, DATASHEET, THREAT_MODEL, ADRs, 3-min Loom |
+| 10 Deploy | ✅ (ready) | `vercel.json` daily cron→`/api/jobs/run`, `prisma generate` on postinstall, `/api/health` probe, `docs/DEPLOY.md` runbook (Neon+Vercel). **Live deploy is a user action** — see the runbook |
+| **11 Docs** | ⏳ next | README case study, ARCHITECTURE+diagram, MODEL_CARD, DATASHEET, THREAT_MODEL, ADRs, 3-min Loom |
 
 ---
 
@@ -98,6 +98,8 @@ prisma/schema.prisma, prisma/migrations, prisma/seed.ts
 tests/unit/*, tests/integration/*   vitest
 e2e/*.spec.ts + playwright.config.ts   Playwright e2e (pnpm e2e; webServer = next start -p 3100)
 .github/workflows/ci.yml   GitHub Actions: migrate/seed/lint/typecheck/test/build/e2e + eval gate
+app/api/health            liveness/readiness probe (DB ping)
+vercel.json               Vercel daily cron -> /api/jobs/run; docs/DEPLOY.md = Neon+Vercel runbook
 ```
 **Data model (11):** Tenant, User(role,passwordHash,email@unique), Document, Chunk(vector768), Ticket(tags,priority,status), Message(sender CUSTOMER|AGENT|AI), AiSuggestion(draft,citations,faithfulness,refused,cost,tokens,latency,status), AuditLog, ApiKey, Job(type,payload,status,attempts,runAt) + enums.
 
@@ -143,4 +145,4 @@ pnpm typecheck; pnpm lint; pnpm test; pnpm test:int; pnpm eval; pnpm build; pnpm
 - **Vercel Hobby cron** is daily-only → for prod job processing run a worker or note the limitation (local demo uses `pnpm worker`).
 
 ## Commit tally
-~50 commits (Phase 0–9). Each phase = 6–9 atomic commits. Verify with `git log --oneline | Measure-Object`.
+~56 commits (Phase 0–10). Each phase = 5–9 atomic commits. Verify with `git log --oneline | Measure-Object`.
