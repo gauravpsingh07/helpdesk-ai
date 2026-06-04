@@ -5,14 +5,14 @@
 > `docs/BUILD_PLAN.md` (how-to) and `docs/PROJECT_PLAN.md` (spec) — but **this file is the source of
 > truth for current status.** Keep it updated at every phase boundary.
 >
-> Last updated: end of **Phase 8** (Governance & security).
+> Last updated: end of **Phase 9** (Testing & CI/CD).
 
 ---
 
 ## TL;DR
 - **What:** multi-tenant AI customer-support SaaS. Portfolio project to land full-stack/SWE roles; demonstrates Agentic design · RAG · AI Ops · Automation · Governance.
 - **Where:** `D:\Projects\helpdesk` (Windows / PowerShell). **GitHub:** https://github.com/gauravpsingh07/helpdesk-ai (public, `origin/main`).
-- **Status:** Phases 0–8 done & pushed. Phases 9–11 remain. ~44 commits, 24 unit + 8 integration tests, build green, eval gate passing.
+- **Status:** Phases 0–9 done & pushed. Phases 10–11 remain. ~50 commits, 24 unit + 8 integration + 1 Playwright e2e, CI pipeline + eval gate green.
 - **Resume:** start Docker → `docker compose up -d` → `pnpm dev` + `pnpm worker` → log in `admin@acme.test` / `Password123!`.
 
 ## Process rules (the user set these — follow exactly)
@@ -61,8 +61,8 @@
 | 6 Background jobs | ✅ | Postgres queue (SKIP LOCKED, backoff), worker, async ingest, auto-triage on create, self-rescheduling digest, `/api/jobs/run` |
 | 7 AI Operations | ✅ | eval harness (golden set + faithfulness scorer + `eval/report.md` + `pnpm eval` gate), `/metrics` page (cost / p95 latency / acceptance / refusal / faithfulness) |
 | 8 Governance | ✅ | PII redaction (ingest), prompt-injection sanitize + restricted-topic refusal (agent), per-tenant monthly cost cap, audit log. Governance *docs* (model card/datasheet/threat-model) deferred to Phase 11 |
-| **9 Testing & CI/CD** | ⏳ next | Playwright e2e (signup→ticket→AI draft→send), GitHub Actions (lint/typecheck/test/build/e2e + eval gate), Postgres service |
-| 10 Deploy | ⏳ | Neon Postgres, Vercel, env, `vercel.json` cron→`/api/jobs/run`, demo creds |
+| 9 Testing & CI/CD | ✅ | Playwright e2e (sign-in→ticket→reply), GitHub Actions (install→migrate→seed→lint→typecheck→unit→integration→build→e2e→eval) with a Postgres service. AI steps skip without the `GEMINI_API_KEY` secret |
+| **10 Deploy** | ⏳ next | Neon Postgres, Vercel, env, `vercel.json` cron→`/api/jobs/run`, demo creds |
 | 11 Docs | ⏳ | README case study, ARCHITECTURE+diagram, MODEL_CARD, DATASHEET, THREAT_MODEL, ADRs, 3-min Loom |
 
 ---
@@ -96,6 +96,8 @@ lib/actions/{auth,tickets,documents,agent}.ts  server actions
 scripts/worker.ts         `pnpm worker` (tsx)
 prisma/schema.prisma, prisma/migrations, prisma/seed.ts
 tests/unit/*, tests/integration/*   vitest
+e2e/*.spec.ts + playwright.config.ts   Playwright e2e (pnpm e2e; webServer = next start -p 3100)
+.github/workflows/ci.yml   GitHub Actions: migrate/seed/lint/typecheck/test/build/e2e + eval gate
 ```
 **Data model (11):** Tenant, User(role,passwordHash,email@unique), Document, Chunk(vector768), Ticket(tags,priority,status), Message(sender CUSTOMER|AGENT|AI), AiSuggestion(draft,citations,faithfulness,refused,cost,tokens,latency,status), AuditLog, ApiKey, Job(type,payload,status,attempts,runAt) + enums.
 
@@ -123,7 +125,7 @@ pnpm dev                        # http://localhost:3000
 pnpm worker                     # separate terminal: drains the job queue
 
 # 5. Verify
-pnpm typecheck; pnpm lint; pnpm test; pnpm test:int; pnpm eval; pnpm build
+pnpm typecheck; pnpm lint; pnpm test; pnpm test:int; pnpm eval; pnpm build; pnpm e2e
 ```
 **Demo:** tenants `acme` + `globex`; users `admin@/agent@/customer@{slug}.test`, password `Password123!`; widget keys `hd_demo_acme`, `hd_demo_globex`. AI integration tests auto-skip when `GEMINI_API_KEY` is unset.
 
@@ -141,4 +143,4 @@ pnpm typecheck; pnpm lint; pnpm test; pnpm test:int; pnpm eval; pnpm build
 - **Vercel Hobby cron** is daily-only → for prod job processing run a worker or note the limitation (local demo uses `pnpm worker`).
 
 ## Commit tally
-~44 commits (Phase 0–8). Each phase = 6–9 atomic commits. Verify with `git log --oneline | Measure-Object`.
+~50 commits (Phase 0–9). Each phase = 6–9 atomic commits. Verify with `git log --oneline | Measure-Object`.
