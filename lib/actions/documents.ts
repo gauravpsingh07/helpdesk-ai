@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireRole } from '@/lib/auth/session';
 import { getTenantDb } from '@/lib/db/tenant';
 import { audit } from '@/lib/audit';
-import { ingestDocument } from '@/lib/rag/ingest';
+import { enqueue } from '@/lib/jobs/queue';
 import { retrieve, type RetrievedChunk } from '@/lib/rag/retrieve';
 import { createDocumentSchema, searchSchema } from '@/lib/validation/document';
 
@@ -30,12 +30,12 @@ export async function createDocumentAction(
     target: doc.id,
   });
 
-  try {
-    await ingestDocument(actor.tenantId, doc.id, parsed.data.content);
-  } catch {
-    revalidatePath('/knowledge');
-    return 'Saved, but indexing failed (AI key or rate limit?). You can delete and retry.';
-  }
+  // Index asynchronously: the document shows PENDING until the worker finishes.
+  await enqueue('document.ingest', {
+    tenantId: actor.tenantId,
+    documentId: doc.id,
+    content: parsed.data.content,
+  });
 
   revalidatePath('/knowledge');
   return undefined;
