@@ -45,6 +45,14 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the diagram and component
 - Eval (golden set): **faithfulness 100%**, recall 100%, retrieval-hit 100% — see [`eval/report.md`](eval/report.md).
 - **24 unit + 8 integration + 1 e2e** tests; CI green (lint · typecheck · tests · build · e2e · eval).
 
+## Screenshots
+
+|  |  |
+| --- | --- |
+| ![Sign in](docs/screenshots/01-sign-in.png) | ![Dashboard](docs/screenshots/02-dashboard.png) |
+| ![Tickets](docs/screenshots/03-tickets.png) | ![AI draft — citations + faithfulness, human-in-the-loop](docs/screenshots/04-ticket-ai-suggestion.png) |
+| ![Knowledge base + retrieval](docs/screenshots/05-knowledge.png) | ![AI metrics](docs/screenshots/06-metrics.png) |
+
 ## Run locally
 ```bash
 # prerequisites: Node 20+, pnpm, Docker
