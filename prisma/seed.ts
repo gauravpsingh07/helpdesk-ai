@@ -101,6 +101,26 @@ async function main() {
       },
     });
 
+    await prisma.aiSuggestion.create({
+      data: {
+        tenantId: tenant.id,
+        ticketId: ticket.id,
+        draft:
+          'Standard shipping takes 3–5 business days, and a tracking link is emailed when an order ships. I can resend yours if you confirm the order number. [1]',
+        citations: [
+          { n: 1, documentTitle: 'Shipping & delivery', chunkId: 'seed' },
+        ] as unknown as Prisma.InputJsonValue,
+        faithfulness: 0.88,
+        refused: false,
+        model: 'gemini-2.5-flash',
+        promptTokens: 510,
+        completionTokens: 72,
+        costUsd: 0.000333,
+        latencyMs: 2100,
+        status: 'PENDING',
+      },
+    });
+
     const rawKey = `hd_demo_${slug}`;
     await prisma.apiKey.create({
       data: {
